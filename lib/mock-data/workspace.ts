@@ -1,3 +1,4 @@
+// TODO: Replace with real backend implementation
 import type { Workspace } from '@/types/index';
 
 export const mockWorkspace: Workspace = {

@@ -202,11 +202,11 @@ async function transitionAssetStatus(
 
 export async function resolveAssetDriveFolder(
   assetType: Database['public']['Enums']['asset_type'],
-  clientId: string
+  clientId: string,
+  existingClient?: Awaited<ReturnType<typeof getClientById>> | null
 ): Promise<Awaited<ReturnType<typeof getAssetDriveFolder>> | null> {
   try {
-    const supabase = await createServerSupabaseClient();
-    const client = await getClientById(clientId, supabase);
+    const client = existingClient ?? await getClientById(clientId);
 
     if (!client?.drive_folder_id) {
       return null;
@@ -563,9 +563,10 @@ export async function finalizeAssetUpload(
   }
 
   let clientName = asset.client_id;
+  let clientRow: Awaited<ReturnType<typeof getClientById>> = null;
   try {
-    const client = await getClientById(asset.client_id, supabase);
-    clientName = client?.name ?? clientName;
+    clientRow = await getClientById(asset.client_id, supabase);
+    clientName = clientRow?.name ?? clientName;
   } catch (_error) {
     // Non-blocking: email can fall back to the client id.
   }
@@ -577,7 +578,7 @@ export async function finalizeAssetUpload(
     await transitionAssetStatus(assetId, supabase, 'uploading', 'upload-start');
   }
 
-  const folder = await resolveAssetDriveFolder(asset.type, asset.client_id);
+  const folder = await resolveAssetDriveFolder(asset.type, asset.client_id, clientRow);
   if (!folder) {
     throw new Error('Drive folder not found for asset');
   }
@@ -637,8 +638,7 @@ export async function finalizeAssetUpload(
   }
 
   const updated = await updateAssetRow(assetId, updates, supabase);
-  const persisted = await getAssetById(assetId, supabase);
-  let mapped = mapAsset(persisted ?? updated);
+  let mapped = mapAsset(updated);
 
   if (!mapped) {
     throw new Error('Failed to map asset');
@@ -669,17 +669,9 @@ export async function finalizeAssetUpload(
   });
 
   try {
-    await updateAssetRow(assetId, updates, supabase);
-    const refreshed = await getAssetById(assetId, supabase);
-    const refreshedMapped = mapAsset(refreshed);
-    if (refreshedMapped) {
-      mapped = refreshedMapped;
-    }
     // Create an immutable revision record for this upload and update the asset's revision pointers
     try {
-      // Reuse refreshed asset fetched above instead of making a duplicate DB call
-      const persistedAfterUpdate = refreshed ?? persisted;
-      const currentCount = persistedAfterUpdate?.revision_count ?? 0;
+      const currentCount = updated.revision_count ?? 0;
       const versionNumber = (currentCount ?? 0) + 1;
 
       const revisionInsert = {
@@ -733,6 +725,7 @@ export async function finalizeAssetUpload(
             await logAssetActivity({
               assetId,
               action: 'revision_created',
+              userId: user.id,
               metadata: {
                 assetId,
                 revisionId: revisionData.id,
@@ -769,6 +762,7 @@ export async function finalizeAssetUpload(
     await logAssetActivity({
       assetId,
       action: 'file_uploaded',
+      userId: user.id,
       metadata: {
         driveFileId: input.uploadResult.driveFileId,
         driveFileUrl: input.uploadResult.driveFileUrl,
@@ -872,9 +866,10 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
   }
 
   let clientName = asset.client_id;
+  let clientRow: Awaited<ReturnType<typeof getClientById>> = null;
   try {
-    const client = await getClientById(asset.client_id, supabase);
-    clientName = client?.name ?? clientName;
+    clientRow = await getClientById(asset.client_id, supabase);
+    clientName = clientRow?.name ?? clientName;
   } catch (_error) {
     // Non-blocking: email can fall back to the client id.
   }
@@ -898,7 +893,7 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
   try {
     let folder;
     try {
-      folder = await resolveAssetDriveFolder(asset.type, asset.client_id);
+      folder = await resolveAssetDriveFolder(asset.type, asset.client_id, clientRow);
     } catch (error) {
       logUploadFailure('folder-resolution', error, assetId, {
         clientId: asset.client_id,
@@ -973,8 +968,7 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
     }
 
     const updated = await updateAssetRow(assetId, updates, supabase);
-    const persisted = await getAssetById(assetId, supabase);
-    let mapped = mapAsset(persisted ?? updated);
+    let mapped = mapAsset(updated);
 
     if (!mapped) {
       throw new Error('Failed to map asset');
@@ -993,17 +987,14 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
         uploadedAt,
       });
 
-      await updateAssetRow(assetId, metadata.updates, supabase);
-      const refreshed = await getAssetById(assetId, supabase);
-      const refreshedMapped = mapAsset(refreshed);
+      const metadataUpdated = await updateAssetRow(assetId, metadata.updates, supabase);
+      const refreshedMapped = mapAsset(metadataUpdated);
       if (refreshedMapped) {
         mapped = refreshedMapped;
       }
       // Create an immutable revision record for this upload and update the asset's revision pointers
       try {
-        // Reuse refreshed asset fetched above instead of making a duplicate DB call
-        const persistedAfterUpdate = refreshed ?? persisted;
-        const currentCount = persistedAfterUpdate?.revision_count ?? 0;
+        const currentCount = metadataUpdated.revision_count ?? 0;
         const versionNumber = (currentCount ?? 0) + 1;
 
         const revisionInsert = {
@@ -1050,6 +1041,7 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
               await logAssetActivity({
                 assetId,
                 action: 'revision_created',
+                userId: user.id,
                 metadata: {
                   assetId,
                   revisionId: revisionData.id,
@@ -1082,6 +1074,7 @@ export async function uploadAssetFile(assetId: string, file: File): Promise<Asse
       await logAssetActivity({
         assetId,
         action: 'file_uploaded',
+        userId: user.id,
         metadata: {
           driveFileId: uploadResult.driveFileId,
           driveFileUrl: uploadResult.driveFileUrl,
