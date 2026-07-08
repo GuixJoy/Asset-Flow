@@ -13,6 +13,7 @@ export interface ActivityInput {
   assetId: string;
   action: string;
   metadata?: Record<string, unknown>;
+  userId?: string;
 }
 
 function toJson(value: unknown): Json {
@@ -77,21 +78,29 @@ export async function getAssetActivityWithUsers(
 
 export async function logAssetActivity(input: ActivityInput): Promise<AssetActivityLog> {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    throw new Error('Unauthorized');
+  let resolvedUserId: string;
+
+  if (input.userId) {
+    resolvedUserId = input.userId;
+  } else {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    await getOrCreateCurrentUserProfile();
+    resolvedUserId = user.id;
   }
-
-  await getOrCreateCurrentUserProfile();
 
   const record = await insertActivity(
     {
       asset_id: input.assetId,
-      user_id: user.id,
+      user_id: resolvedUserId,
       action: input.action,
       metadata: toJson(input.metadata ?? {}),
     },
