@@ -1226,7 +1226,32 @@ export async function updateAsset(
     updates.published_at = input.publishedAt ?? new Date().toISOString();
   }
 
-  let record = await updateAssetRow(assetId, updates as Parameters<typeof updateAssetRow>[1], supabase);
+  // Atomic publication: use RPC to apply all updates and create publication record in one transaction
+  let record;
+  if (updates.status === 'published') {
+    const publishedAt = updates.published_at as string;
+
+    // Pass ALL updates to the RPC — status, title, type, assignee, everything.
+    // The RPC applies every field atomically alongside the publication record insert.
+    const { error: rpcError } = await supabase.rpc('publish_asset_with_record', {
+      p_asset_id: assetId,
+      p_updates: updates,
+      p_published_at: publishedAt,
+    });
+
+    if (rpcError) {
+      throw new Error(`Publication failed: ${rpcError.message}`);
+    }
+
+    // Re-read the asset after the RPC to get the full updated state
+    record = await getAssetById(assetId, supabase);
+    if (!record) {
+      throw new Error('Asset not found after publication');
+    }
+  } else {
+    // Non-publication updates: standard path
+    record = await updateAssetRow(assetId, updates as Parameters<typeof updateAssetRow>[1], supabase);
+  }
 
   const targetClientId = input.clientId ?? existing.client_id;
   const targetAssetType = input.type ?? existing.type;

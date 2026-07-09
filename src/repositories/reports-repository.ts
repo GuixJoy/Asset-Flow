@@ -1,53 +1,49 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database';
 
-export type DbAsset = Database['public']['Tables']['content_assets']['Row'];
-
-async function getClient(client?: SupabaseClient<Database>) {
+async function getClient(client?: SupabaseClient) {
   return client ?? (await createServerSupabaseClient());
+}
+
+interface PublicationRecord {
+  asset_id: string;
+  client_id: string;
+  client_name: string;
+  title: string;
+  type: string;
+  uploaded_at: string | null;
+  approved_at: string | null;
+  published_at: string | null;
+  publish_date: string | null;
+  publish_time: string | null;
+  created_at: string;
+  drive_file_url: string | null;
 }
 
 /**
  * Lists published assets for a given client within a date range.
- * The date range is applied against the resolved reporting date for each asset:
- * 1. published_at
- * 2. publish_date (fallback)
- * 3. created_at (fallback)
+ * Reads exclusively from the immutable asset_publication_records table.
+ * The published_at field is always populated in this table (captured at publication time),
+ * so the date filter is applied in SQL for efficiency.
  */
 export async function listClientAssetsForReport(
   clientId: string,
   startDate: Date,
   endDate: Date,
-  client?: SupabaseClient<Database>
-): Promise<DbAsset[]> {
+  client?: SupabaseClient
+): Promise<PublicationRecord[]> {
   const supabase = await getClient(client);
 
   const { data, error } = await supabase
-    .from('content_assets')
-    .select('*')
+    .from('asset_publication_records')
+    .select('asset_id, client_id, client_name, title, type, uploaded_at, approved_at, published_at, publish_date, publish_time, created_at, drive_file_url')
     .eq('client_id', clientId)
-    .eq('status', 'published');
+    .gte('published_at', startDate.toISOString())
+    .lte('published_at', endDate.toISOString());
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const assets = data ?? [];
-
-  return assets.filter((asset) => {
-    let resolvedDate: Date;
-
-    if (asset.published_at) {
-      resolvedDate = new Date(asset.published_at);
-    } else if (asset.publish_date) {
-      // If publish_time exists, combine them to prevent timezone shift issues, otherwise use date
-      const timePart = asset.publish_time ?? '00:00:00';
-      resolvedDate = new Date(`${asset.publish_date}T${timePart}`);
-    } else {
-      resolvedDate = new Date(asset.created_at);
-    }
-
-    return resolvedDate >= startDate && resolvedDate <= endDate;
-  });
+  return (data ?? []) as PublicationRecord[];
 }
