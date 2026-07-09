@@ -21,11 +21,37 @@ function Progress({
     >
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
-        className="bg-primary h-full w-full flex-1 transition-all"
+        className="bg-primary h-full w-full flex-1 transition-[width] duration-500 ease-out"
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />
     </ProgressPrimitive.Root>
   )
 }
 
-export { Progress }
+function ProgressLabel({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="progress-label"
+      className={cn('text-sm font-medium text-muted-foreground', className)}
+      {...props}
+    />
+  )
+}
+
+function ProgressValue({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="progress-value"
+      className={cn('text-sm font-semibold tabular-nums', className)}
+      {...props}
+    />
+  )
+}
+
+export { Progress, ProgressLabel, ProgressValue }

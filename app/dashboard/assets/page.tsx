@@ -22,6 +22,15 @@ import {
 } from '@/components/ui/empty';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { usersApi } from '@/lib/api-client';
 import { assetStatusLabels, assetStatusValues } from '@/lib/asset-workflow';
 import { cn } from '@/lib/utils';
@@ -149,6 +158,9 @@ export default function AssetsPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -205,6 +217,26 @@ export default function AssetsPage() {
     () => getDiscoveryEmptyState(discoveryFilters, visibleAssets.length),
     [discoveryFilters, visibleAssets.length]
   );
+
+  const totalPages = Math.max(1, Math.ceil(visibleAssets.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedAssets = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return visibleAssets.slice(start, start + PAGE_SIZE);
+  }, [visibleAssets, safeCurrentPage]);
+
+  // Reset to page 1 whenever filters, search, or sorting change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery, selectedStatus, selectedAssetType, uploadedDateFilter, selectedAssignedUserId, minFileSizeMb, maxFileSizeMb, metadataFilter, activeQuickFilters, sortMode]);
+
+  // If current page becomes empty after deletion, move to last valid page
+  useEffect(() => {
+    if (visibleAssets.length > 0 && safeCurrentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [visibleAssets.length, safeCurrentPage, totalPages]);
 
   useEffect(() => {
     console.info('[assets][discovery]', {
@@ -697,27 +729,85 @@ export default function AssetsPage() {
       <div className="flex gap-2 overflow-x-auto pb-1">{renderQuickFilters()}</div>
 
       {visibleAssets.length > 0 ? (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-4">
-            {visibleAssets.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onThumbnailClick={() => setPreviewAsset(asset)} />
-            ))}
-          </div>
-        ) : (
-          <div className="table-list-container overflow-x-auto w-full">
-            <div className="min-w-[800px]">
-              <div className="table-header-row">
-                <div className="flex-1 header-cell min-w-[300px]">Asset</div>
-                <div className="w-32 header-cell shrink-0">Status</div>
-                <div className="w-32 header-cell shrink-0">Client</div>
-                <div className="w-32 header-cell shrink-0 text-right">Updated</div>
-              </div>
-              <div>
-                {visibleAssets.map((asset) => renderAssetRow(asset))}
+        <>
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-4">
+              {paginatedAssets.map((asset) => (
+                <AssetCard key={asset.id} asset={asset} onThumbnailClick={() => setPreviewAsset(asset)} />
+              ))}
+            </div>
+          ) : (
+            <div className="table-list-container overflow-x-auto w-full">
+              <div className="min-w-[800px]">
+                <div className="table-header-row">
+                  <div className="flex-1 header-cell min-w-[300px]">Asset</div>
+                  <div className="w-32 header-cell shrink-0">Status</div>
+                  <div className="w-32 header-cell shrink-0">Client</div>
+                  <div className="w-32 header-cell shrink-0 text-right">Updated</div>
+                </div>
+                <div>
+                  {paginatedAssets.map((asset) => renderAssetRow(asset))}
+                </div>
               </div>
             </div>
-          </div>
-        )
+          )}
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.max(1, p - 1)); }}
+                      aria-disabled={safeCurrentPage === 1}
+                      className={safeCurrentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      if (totalPages <= 7) return true;
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - safeCurrentPage) <= 1) return true;
+                      return false;
+                    })
+                    .reduce<(number | 'ellipsis')[]>((acc, page, idx, arr) => {
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                        acc.push('ellipsis');
+                      }
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === 'ellipsis' ? (
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={item}>
+                          <PaginationLink
+                            href="#"
+                            isActive={item === safeCurrentPage}
+                            onClick={(e) => { e.preventDefault(); setCurrentPage(item); }}
+                          >
+                            {item}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.min(totalPages, p + 1)); }}
+                      aria-disabled={safeCurrentPage === totalPages}
+                      className={safeCurrentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </>
       ) : assets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <svg className="h-8 w-8 text-[var(--color-text-faint)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

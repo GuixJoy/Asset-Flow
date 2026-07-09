@@ -13,7 +13,7 @@ import { Asset, Client, User } from '@/types/index';
 import { mutate } from 'swr';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress';
 import { Copy, FolderOpen, MoreHorizontal, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -556,9 +556,9 @@ export default function AssetDetailPage() {
               </div>
               {isUploadingRevision && (
                 <div className="mt-3 w-full max-w-sm space-y-2">
-                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-[#71717a]">
-                    <span>Uploading revision</span>
-                    <span>{revisionUploadProgress}%</span>
+                  <div className="flex items-center justify-between">
+                    <ProgressLabel>Uploading revision</ProgressLabel>
+                    <ProgressValue>{revisionUploadProgress}%</ProgressValue>
                   </div>
                   <Progress value={revisionUploadProgress} className="h-2 bg-[rgba(255,255,255,0.08)]" />
                 </div>

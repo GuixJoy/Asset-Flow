@@ -3,7 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-
 :root {
   --background: #0a0a0a;
   --foreground: #ffffff;
@@ -45,7 +44,6 @@
   --border-hover: rgba(255, 255, 255, 0.12);
   --border-focus: rgba(255, 255, 255, 0.18);
 }
-
 
 .dark {
   --background: #0a0a0a;

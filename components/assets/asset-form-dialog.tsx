@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
+import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -460,9 +460,9 @@ export function AssetFormDialog({ mode, asset, trigger, onSaved }: AssetFormDial
               </p>
               {uploadState === 'uploading' && (
                 <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    <span>Uploading to Drive</span>
-                    <span>{uploadProgress}%</span>
+                  <div className="flex items-center justify-between">
+                    <ProgressLabel>Uploading to Drive</ProgressLabel>
+                    <ProgressValue>{uploadProgress}%</ProgressValue>
                   </div>
                   <Progress value={uploadProgress} className="h-2" />
                 </div>
