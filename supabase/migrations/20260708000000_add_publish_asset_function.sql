@@ -1,6 +1,7 @@
--- Atomic publication function: applies all asset updates AND creates the immutable publication record
--- in a single PostgreSQL transaction. If any step fails, the entire operation rolls back.
--- The UNIQUE constraint on asset_publication_records.asset_id enforces idempotency at the database level.
+-- Atomic publication function: applies typed asset updates AND creates the immutable
+-- publication record in a single PostgreSQL transaction. If any step fails, the entire
+-- operation rolls back. The UNIQUE constraint on asset_publication_records.asset_id
+-- enforces idempotency at the database level.
 
 BEGIN;
 
@@ -16,19 +17,28 @@ DECLARE
   v_asset record;
   v_client_name text;
 BEGIN
-  -- Apply all field updates to content_assets in a single statement.
-  -- p_updates is a JSONB object like {"title": "New Title", "assigned_to": "uuid", ...}
-  -- We build a dynamic UPDATE from the JSONB keys.
-  EXECUTE format(
-    'UPDATE public.content_assets SET %s, updated_at = now() WHERE id = $1',
-    (
-      SELECT string_agg(format('%I = $2->>%L', key, key), ', ')
-      FROM jsonb_object_keys(p_updates) AS key
-    )
-  )
-  USING p_asset_id, p_updates;
+  -- Apply all field updates with explicit type casting.
+  -- Each column is updated only if its key exists in p_updates.
+  UPDATE public.content_assets SET
+    client_id          = CASE WHEN p_updates ? 'client_id'          THEN (p_updates->>'client_id')::uuid            ELSE client_id          END,
+    title              = CASE WHEN p_updates ? 'title'              THEN p_updates->>'title'                        ELSE title              END,
+    type               = CASE WHEN p_updates ? 'type'               THEN (p_updates->>'type')::public.asset_type    ELSE type               END,
+    status             = CASE WHEN p_updates ? 'status'             THEN (p_updates->>'status')::public.asset_status ELSE status             END,
+    drive_file_url     = CASE WHEN p_updates ? 'drive_file_url'     THEN p_updates->>'drive_file_url'               ELSE drive_file_url     END,
+    drive_folder_id    = CASE WHEN p_updates ? 'drive_folder_id'    THEN p_updates->>'drive_folder_id'              ELSE drive_folder_id    END,
+    drive_folder_url   = CASE WHEN p_updates ? 'drive_folder_url'   THEN p_updates->>'drive_folder_url'             ELSE drive_folder_url   END,
+    thumbnail_url      = CASE WHEN p_updates ? 'thumbnail_url'      THEN p_updates->>'thumbnail_url'                ELSE thumbnail_url      END,
+    assigned_to        = CASE WHEN p_updates ? 'assigned_to'        THEN (p_updates->>'assigned_to')::uuid          ELSE assigned_to        END,
+    scheduled_at       = CASE WHEN p_updates ? 'scheduled_at'       THEN (p_updates->>'scheduled_at')::timestamptz  ELSE scheduled_at       END,
+    publish_date       = CASE WHEN p_updates ? 'publish_date'       THEN (p_updates->>'publish_date')::date         ELSE publish_date       END,
+    publish_time       = CASE WHEN p_updates ? 'publish_time'       THEN (p_updates->>'publish_time')::time         ELSE publish_time       END,
+    scheduled_by       = CASE WHEN p_updates ? 'scheduled_by'       THEN (p_updates->>'scheduled_by')::uuid         ELSE scheduled_by       END,
+    published_at       = CASE WHEN p_updates ? 'published_at'       THEN (p_updates->>'published_at')::timestamptz  ELSE published_at       END,
+    approved_at        = CASE WHEN p_updates ? 'approved_at'        THEN (p_updates->>'approved_at')::timestamptz   ELSE approved_at        END,
+    approved_by        = CASE WHEN p_updates ? 'approved_by'        THEN (p_updates->>'approved_by')::uuid          ELSE approved_by        END,
+    updated_at         = now()
+  WHERE id = p_asset_id;
 
-  -- Verify the update affected exactly one row
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Asset not found: %', p_asset_id;
   END IF;
