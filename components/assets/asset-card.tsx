@@ -14,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/assets/status-badge';
-import { getAssetIcon, getAssetPreviewType } from '@/lib/asset-display';
+import { getAssetIcon, getAssetPreviewType, formatRelativeTime } from '@/lib/asset-display';
 import { canUploadFromStatus } from '@/lib/asset-workflow';
 import { cn } from '@/lib/utils';
 import { AssetFormDialog } from '@/components/assets/asset-form-dialog';
@@ -42,6 +42,15 @@ import { Button } from '@/components/ui/button';
 interface AssetCardProps {
   asset: Asset;
   onThumbnailClick?: () => void;
+  usersById?: Map<string, { name: string }>;
+}
+
+function getDisplayName(name: string): string {
+  if (name.includes('@')) {
+    const local = name.split('@')[0];
+    return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return name.split(' ')[0];
 }
 
 function getDimensionLabel(asset: Asset): string | null {
@@ -72,13 +81,15 @@ function getExtensionLabel(asset: Asset): string {
   return (asset.fileExtension ?? asset.mimeType?.split('/').pop() ?? asset.type).toUpperCase();
 }
 
-function AssetCardImpl({ asset, onThumbnailClick }: AssetCardProps) {
+function AssetCardImpl({ asset, onThumbnailClick, usersById }: AssetCardProps) {
   const router = useRouter();
   const previewType = getAssetPreviewType(asset);
   const AssetIcon = getAssetIcon(asset);
   const durationLabel = getDurationLabel(asset);
   const detailUrl = `/dashboard/assets/${asset.id}`;
   const uploadEligible = canUploadFromStatus(asset.status);
+  const rawUploaderName = asset.uploadedBy ? usersById?.get(asset.uploadedBy)?.name : null;
+  const uploaderName = rawUploaderName ? getDisplayName(rawUploaderName) : null;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -251,6 +262,13 @@ function AssetCardImpl({ asset, onThumbnailClick }: AssetCardProps) {
         <div className="flex items-start justify-between gap-2 p-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium leading-5 text-white">{asset.title}</p>
+            {(uploaderName || asset.uploadedAt) && (
+              <p className="mt-1 truncate text-[11px] leading-4 text-[#71717a]">
+                {uploaderName && <span>{uploaderName}</span>}
+                {uploaderName && asset.uploadedAt && <span className="mx-1">·</span>}
+                {asset.uploadedAt && <span>{formatRelativeTime(asset.uploadedAt)}</span>}
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="inline-flex h-[18px] items-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2 text-[10px] uppercase tracking-wide text-[#a1a1aa]">
                 {getExtensionLabel(asset)}

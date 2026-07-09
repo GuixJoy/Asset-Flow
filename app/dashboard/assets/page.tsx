@@ -733,7 +733,7 @@ export default function AssetsPage() {
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-4">
               {paginatedAssets.map((asset) => (
-                <AssetCard key={asset.id} asset={asset} onThumbnailClick={() => setPreviewAsset(asset)} />
+                <AssetCard key={asset.id} asset={asset} onThumbnailClick={() => setPreviewAsset(asset)} usersById={usersById} />
               ))}
             </div>
           ) : (

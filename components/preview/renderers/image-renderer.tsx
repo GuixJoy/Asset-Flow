@@ -22,7 +22,7 @@ export function ImageRenderer({ descriptor, urls, compact, onError }: ImageRende
 
   return (
     <div
-      className="relative flex items-center justify-center bg-[rgba(255,255,255,0.02)]"
+      className="relative flex flex-1 items-center justify-center bg-[rgba(255,255,255,0.02)]"
       style={{ minHeight: compact ? 220 : 420 }}
     >
       {!loaded && (

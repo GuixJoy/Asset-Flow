@@ -30,13 +30,13 @@ export function DocumentRenderer({ descriptor, urls, compact, onError, iframeRef
 
   return (
     <div
-      className="relative flex items-center justify-center bg-[rgba(255,255,255,0.02)]"
+      className="relative flex flex-1 items-center justify-center bg-[rgba(255,255,255,0.02)]"
       style={{ minHeight: compact ? 220 : 420 }}
     >
       <iframe
         ref={refCallback}
         src={documentUrl}
-        className="h-full w-full rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#0f0f0f]"
+        className="h-full w-full flex-1 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#0f0f0f]"
         onError={onError}
         title={`Document preview: ${descriptor.title}`}
       />

@@ -30,7 +30,7 @@ export function VideoRenderer({ descriptor, urls, compact, onError, videoRef }: 
 
   return (
     <div
-      className="relative flex items-center justify-center bg-black"
+      className="relative flex flex-1 items-center justify-center bg-black"
       style={{ minHeight: compact ? 220 : 420 }}
     >
       <video

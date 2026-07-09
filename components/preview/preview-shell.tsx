@@ -74,7 +74,7 @@ export function PreviewShell({ asset, open, onOpenChange }: PreviewShellProps) {
             </div>
 
             <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-h-0 min-w-0 overflow-auto rounded-xl">
+              <div className="flex min-h-0 min-w-0 flex-col overflow-auto rounded-xl">
                 <PreviewMedia descriptor={descriptor} />
               </div>
 
