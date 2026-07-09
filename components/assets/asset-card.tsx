@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/button';
 
 interface AssetCardProps {
   asset: Asset;
+  onThumbnailClick?: () => void;
 }
 
 function getDimensionLabel(asset: Asset): string | null {
@@ -71,7 +72,7 @@ function getExtensionLabel(asset: Asset): string {
   return (asset.fileExtension ?? asset.mimeType?.split('/').pop() ?? asset.type).toUpperCase();
 }
 
-function AssetCardImpl({ asset }: AssetCardProps) {
+function AssetCardImpl({ asset, onThumbnailClick }: AssetCardProps) {
   const router = useRouter();
   const previewType = getAssetPreviewType(asset);
   const AssetIcon = getAssetIcon(asset);
@@ -150,7 +151,16 @@ function AssetCardImpl({ asset }: AssetCardProps) {
           'hover:border-[rgba(255,255,255,0.18)] hover:bg-[#1a1a1a] focus-within:border-[rgba(255,255,255,0.18)] focus-within:bg-[#1a1a1a]'
         )}
       >
-        <div className="relative overflow-hidden bg-[#0f0f0f]">
+        <div
+          className="relative overflow-hidden bg-[#0f0f0f]"
+          onClick={(e) => {
+            if (onThumbnailClick) {
+              e.preventDefault();
+              e.stopPropagation();
+              onThumbnailClick();
+            }
+          }}
+        >
           <div className="aspect-[16/9] w-full">
             {previewType === 'image' && asset.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

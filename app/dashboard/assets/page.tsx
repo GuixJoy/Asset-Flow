@@ -8,6 +8,7 @@ import { AssetCard } from '@/components/assets/asset-card';
 import { AssetFormDialog } from '@/components/assets/asset-form-dialog';
 import { StatusBadge } from '@/components/assets/status-badge';
 import { Button } from '@/components/ui/button';
+import { PreviewShell } from '@/components/preview';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -147,6 +148,7 @@ export default function AssetsPage() {
   const [sortMode, setSortMode] = useState<AssetSortMode>(defaultSortMode);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -397,7 +399,14 @@ export default function AssetsPage() {
         className="table-row-item"
       >
         <div className="flex flex-1 items-center gap-3 min-w-0">
-          <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-[#0f0f0f]">
+          <div
+            className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-[#0f0f0f]"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPreviewAsset(asset);
+            }}
+          >
             {asset.thumbnailUrl && previewType === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={asset.thumbnailUrl} alt={asset.title} className="h-full w-full object-cover" loading="lazy" />
@@ -691,7 +700,7 @@ export default function AssetsPage() {
         viewMode === 'grid' ? (
           <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-4">
             {visibleAssets.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} />
+              <AssetCard key={asset.id} asset={asset} onThumbnailClick={() => setPreviewAsset(asset)} />
             ))}
           </div>
         ) : (
@@ -726,6 +735,14 @@ export default function AssetsPage() {
           <p className="text-[12px] text-[var(--color-text-faint)] mt-0.5">{emptyState.description}</p>
         </div>
       )}
+
+      <PreviewShell
+        asset={previewAsset}
+        open={previewAsset !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewAsset(null);
+        }}
+      />
     </div>
   );
 }
