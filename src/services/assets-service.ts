@@ -434,10 +434,35 @@ export async function createAsset(input: AssetInput): Promise<Asset> {
 
   const scheduledFields = splitScheduledAt(input.scheduledAt);
 
+  // Auto-numbering: if title is empty, generate it from the active cycle
+  let finalTitle = input.title;
+  let finalCycleId = input.cycleId ?? null;
+  let finalAssetNumber = input.assetNumber ?? null;
+
+  if (!finalTitle || finalTitle.trim() === '') {
+    const { getActiveCycleForClientService } = await import('@/services/service-cycles-service');
+    const { getNextAssetNumber, generateAssetTitle, extractClientShortForm } = await import('@/services/numbering-service');
+    const { getClientById: getClientByIdRepo } = await import('@/repositories/clients-repository');
+
+    const activeCycle = await getActiveCycleForClientService(input.clientId, supabase);
+    if (!activeCycle) {
+      throw new Error('No active service cycle found. Please contact the administrator to create one.');
+    }
+
+    const assetNumber = await getNextAssetNumber(activeCycle.id, input.type);
+
+    const clientRecord = await getClientByIdRepo(input.clientId, supabase);
+    const shortForm = extractClientShortForm(clientRecord?.name ?? 'XX');
+
+    finalTitle = generateAssetTitle(shortForm, activeCycle.startDate, input.type, assetNumber);
+    finalCycleId = activeCycle.id;
+    finalAssetNumber = assetNumber;
+  }
+
   const record = await insertAsset(
     {
       client_id: input.clientId,
-      title: input.title,
+      title: finalTitle,
       type: input.type,
       status: input.status ?? 'draft',
       drive_file_url: input.driveFileUrl ?? null,
@@ -453,8 +478,8 @@ export async function createAsset(input: AssetInput): Promise<Asset> {
       published_at: input.publishedAt ?? null,
       approved_at: input.approvedAt ?? null,
       approved_by: input.approvedBy ?? null,
-      cycle_id: input.cycleId ?? null,
-      asset_number: input.assetNumber ?? null,
+      cycle_id: finalCycleId,
+      asset_number: finalAssetNumber,
     },
     supabase
   );
@@ -507,7 +532,7 @@ export async function createAsset(input: AssetInput): Promise<Asset> {
       assetId: mapped.id,
       action: 'asset_created',
       metadata: {
-        title: mapped.title,
+        title: finalTitle,
         type: mapped.type,
         status: mapped.status,
       },
