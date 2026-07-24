@@ -137,6 +137,8 @@ export interface Database {
           current_revision_id: string | null;
           latest_revision_id: string | null;
           revision_count: number;
+          cycle_id: string | null;
+          asset_number: number | null;
         };
         Relationships: [];
         Insert: {
@@ -172,6 +174,8 @@ export interface Database {
           calendar_synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          cycle_id?: string | null;
+          asset_number?: number | null;
         };
         Update: {
           client_id?: string;
@@ -208,6 +212,8 @@ export interface Database {
           current_revision_id?: string | null;
           latest_revision_id?: string | null;
           revision_count?: number;
+          cycle_id?: string | null;
+          asset_number?: number | null;
         };
       };
       google_integrations: {
@@ -385,6 +391,97 @@ export interface Database {
           created_at?: string;
         };
       };
+      service_cycles: {
+        Row: {
+          id: string;
+          client_id: string;
+          start_date: string;
+          end_date: string;
+          reels_target: number;
+          posters_target: number;
+          status: Database['public']['Enums']['cycle_status'];
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Relationships: [];
+        Insert: {
+          id?: string;
+          client_id: string;
+          start_date: string;
+          end_date: string;
+          reels_target?: number;
+          posters_target?: number;
+          status?: Database['public']['Enums']['cycle_status'];
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string;
+          start_date?: string;
+          end_date?: string;
+          reels_target?: number;
+          posters_target?: number;
+          status?: Database['public']['Enums']['cycle_status'];
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      content_plans: {
+        Row: {
+          id: string;
+          cycle_id: string;
+          client_id: string;
+          week_number: number;
+          week_start: string;
+          week_end: string;
+          planned_reels: number;
+          planned_posters: number;
+          created_at: string;
+        };
+        Relationships: [];
+        Insert: {
+          id?: string;
+          cycle_id: string;
+          client_id: string;
+          week_number: number;
+          week_start: string;
+          week_end: string;
+          planned_reels?: number;
+          planned_posters?: number;
+          created_at?: string;
+        };
+        Update: {
+          cycle_id?: string;
+          client_id?: string;
+          week_number?: number;
+          week_start?: string;
+          week_end?: string;
+          planned_reels?: number;
+          planned_posters?: number;
+          created_at?: string;
+        };
+      };
+      service_cycle_sequences: {
+        Row: {
+          cycle_id: string;
+          asset_type: Database['public']['Enums']['asset_type'];
+          next_number: number;
+        };
+        Relationships: [];
+        Insert: {
+          cycle_id: string;
+          asset_type: Database['public']['Enums']['asset_type'];
+          next_number?: number;
+        };
+        Update: {
+          cycle_id?: string;
+          asset_type?: Database['public']['Enums']['asset_type'];
+          next_number?: number;
+        };
+      };
     };
     Enums: {
       user_role: 'admin' | 'designer' | 'approver' | 'uploader';
@@ -416,6 +513,7 @@ export interface Database {
         ;
       comment_type: 'comment' | 'revision' | 'approval_note' | 'internal_note';
       revision_status: 'open' | 'resolved';
+      cycle_status: 'upcoming' | 'active' | 'completed' | 'cancelled';
     };
     Views: Record<string, never>;
     Functions: {
@@ -427,6 +525,19 @@ export interface Database {
           client_id: string;
           weekly_count: number;
         }[];
+      };
+      assign_asset_number: {
+        Args: {
+          p_cycle_id: string;
+          p_asset_type: Database['public']['Enums']['asset_type'];
+        };
+        Returns: number;
+      };
+      generate_content_plan: {
+        Args: {
+          p_cycle_id: string;
+        };
+        Returns: Database['public']['Tables']['content_plans']['Row'][];
       };
     };
   };

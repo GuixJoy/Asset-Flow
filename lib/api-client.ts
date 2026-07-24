@@ -8,7 +8,10 @@ import type {
   AssetComment,
   Client,
   ClientReference,
+  CreateCycleInput,
   Notification,
+  ServiceCycle,
+  ServiceCycleWithPlan,
   UploadQueue,
   User,
   Workspace,
@@ -414,6 +417,75 @@ export const clientsApi = {
 
   delete: async (id: string): Promise<void> => {
     await fetchJson(`/api/clients/${id}`, { method: 'DELETE' });
+  },
+};
+
+function hydrateServiceCycle(cycle: ServiceCycle): ServiceCycle {
+  return {
+    ...cycle,
+    createdAt: cycle.createdAt ? new Date(cycle.createdAt as unknown as string) : new Date(),
+    updatedAt: cycle.updatedAt ? new Date(cycle.updatedAt as unknown as string) : new Date(),
+  };
+}
+
+export const cyclesApi = {
+  list: async (clientId: string): Promise<ServiceCycleWithPlan[]> => {
+    const cycles = await fetchJsonDeduped<ServiceCycleWithPlan[]>(`/api/cycles?clientId=${clientId}`);
+    return cycles.map((c) => ({
+      ...hydrateServiceCycle(c),
+      plans: c.plans ?? [],
+      totalReelsPlanned: c.totalReelsPlanned ?? 0,
+      totalPostersPlanned: c.totalPostersPlanned ?? 0,
+      totalReelsPublished: c.totalReelsPublished ?? 0,
+      totalPostersPublished: c.totalPostersPublished ?? 0,
+    }));
+  },
+
+  get: async (cycleId: string): Promise<ServiceCycleWithPlan | null> => {
+    const cycle = await fetchJsonNullableDeduped<ServiceCycleWithPlan>(`/api/cycles/${cycleId}`);
+    if (!cycle) return null;
+    return {
+      ...hydrateServiceCycle(cycle),
+      plans: cycle.plans ?? [],
+      totalReelsPlanned: cycle.totalReelsPlanned ?? 0,
+      totalPostersPlanned: cycle.totalPostersPlanned ?? 0,
+      totalReelsPublished: cycle.totalReelsPublished ?? 0,
+      totalPostersPublished: cycle.totalPostersPublished ?? 0,
+    };
+  },
+
+  create: async (input: CreateCycleInput): Promise<ServiceCycle> => {
+    const created = await fetchJson<ServiceCycle>('/api/cycles', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return hydrateServiceCycle(created);
+  },
+
+  complete: async (cycleId: string): Promise<void> => {
+    await fetchJson(`/api/cycles/${cycleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'complete' }),
+    });
+  },
+
+  cancel: async (cycleId: string): Promise<void> => {
+    await fetchJson(`/api/cycles/${cycleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'cancel' }),
+    });
+  },
+
+  renew: async (cycleId: string, input: Omit<CreateCycleInput, 'clientId'>): Promise<ServiceCycle> => {
+    const created = await fetchJson<ServiceCycle>(`/api/cycles/${cycleId}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return hydrateServiceCycle(created);
+  },
+
+  delete: async (cycleId: string): Promise<void> => {
+    await fetchJson(`/api/cycles/${cycleId}`, { method: 'DELETE' });
   },
 };
 

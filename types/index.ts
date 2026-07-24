@@ -127,6 +127,9 @@ export interface Asset {
   latestRevision?: AssetRevision | null;
   revisionCount?: number;
   comments: AssetComment[];
+  // Content planning fields
+  cycleId?: string | null;
+  assetNumber?: number | null;
 }
 
 export interface AssetRevision {
@@ -210,4 +213,48 @@ export interface Workspace {
   logo?: string;
   members: TeamMember[];
   createdAt: Date;
+}
+
+export type CycleStatus = 'upcoming' | 'active' | 'completed' | 'cancelled';
+
+export interface ServiceCycle {
+  id: string;
+  clientId: string;
+  startDate: string;
+  endDate: string;
+  reelsTarget: number;
+  postersTarget: number;
+  status: CycleStatus;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ContentPlanRow {
+  id: string;
+  cycleId: string;
+  clientId: string;
+  weekNumber: number;
+  weekStart: string;
+  weekEnd: string;
+  plannedReels: number;
+  plannedPosters: number;
+  actualReels?: number;
+  actualPosters?: number;
+}
+
+export interface ServiceCycleWithPlan extends ServiceCycle {
+  plans: ContentPlanRow[];
+  totalReelsPlanned: number;
+  totalPostersPlanned: number;
+  totalReelsPublished: number;
+  totalPostersPublished: number;
+}
+
+export interface CreateCycleInput {
+  clientId: string;
+  startDate: string;
+  endDate: string;
+  reelsTarget: number;
+  postersTarget: number;
 }

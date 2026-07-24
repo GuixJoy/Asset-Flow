@@ -42,6 +42,8 @@ export interface AssetInput {
   publishedAt?: string | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
+  cycleId?: string | null;
+  assetNumber?: number | null;
 }
 
 function splitScheduledAt(value?: string | null): { publishDate: string | null; publishTime: string | null } {
@@ -127,6 +129,8 @@ function mapAsset(asset: Awaited<ReturnType<typeof getAssetById>>): Asset | null
     latestRevision: undefined,
     revisionCount: asset.revision_count ?? undefined,
     comments: [],
+    cycleId: asset.cycle_id ?? null,
+    assetNumber: asset.asset_number ?? null,
   };
 }
 
@@ -449,6 +453,8 @@ export async function createAsset(input: AssetInput): Promise<Asset> {
       published_at: input.publishedAt ?? null,
       approved_at: input.approvedAt ?? null,
       approved_by: input.approvedBy ?? null,
+      cycle_id: input.cycleId ?? null,
+      asset_number: input.assetNumber ?? null,
     },
     supabase
   );
