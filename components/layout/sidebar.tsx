@@ -14,6 +14,7 @@ import {
   Upload,
   LogOut,
   ClipboardList,
+  LayoutList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -37,6 +38,7 @@ const navigationSections = [
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
       { label: 'Clients', href: '/dashboard/clients', icon: Users },
+      { label: 'Planner', href: '/dashboard/planner', icon: LayoutList },
       { label: 'Assets', href: '/dashboard/assets', icon: ImageIcon },
     ],
   },
