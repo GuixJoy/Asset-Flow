@@ -252,6 +252,56 @@ export async function completeCycleService(cycleId: string): Promise<void> {
 }
 
 /**
+ * Update a cycle's deliverables and regenerate its content plan.
+ */
+export async function updateCycleDeliverables(
+  cycleId: string,
+  input: {
+    startDate?: string;
+    endDate?: string;
+    reelsTarget?: number;
+    postersTarget?: number;
+  }
+): Promise<ServiceCycle> {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Unauthorized');
+  }
+
+  const existing = await getCycleById(cycleId, supabase);
+  if (!existing) {
+    throw new Error('Cycle not found');
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (input.startDate !== undefined) updates.start_date = input.startDate;
+  if (input.endDate !== undefined) updates.end_date = input.endDate;
+  if (input.reelsTarget !== undefined) updates.reels_target = input.reelsTarget;
+  if (input.postersTarget !== undefined) updates.posters_target = input.postersTarget;
+
+  if (Object.keys(updates).length > 0) {
+    await updateCycle(cycleId, updates, supabase);
+
+    // Regenerate content plan with updated values
+    const { error: planError } = await supabase.rpc('generate_content_plan', {
+      p_cycle_id: cycleId,
+    });
+
+    if (planError) {
+      console.error('[service-cycles] Plan regeneration failed', {
+        cycleId,
+        error: planError.message,
+      });
+    }
+  }
+
+  const updated = await getCycleById(cycleId, supabase);
+  return mapCycle(updated!);
+}
+
+/**
  * Delete a cycle and its plan.
  */
 export async function deleteCycleService(cycleId: string): Promise<void> {

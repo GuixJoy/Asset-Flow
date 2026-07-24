@@ -360,8 +360,19 @@ export function ClientDetail({ client: initialClient, assets, cycles: initialCyc
   }, [client.id]);
 
   // Cycle management handlers
+  const [editingCycle, setEditingCycle] = useState<ServiceCycle | null>(null);
+
   const handleCycleFormSubmit = async (input: CreateCycleInput) => {
-    if (cycleFormPrefill?.id) {
+    if (editingCycle) {
+      // Editing existing cycle — update deliverables and regenerate plan
+      await cyclesApi.update(editingCycle.id, {
+        startDate: input.startDate,
+        endDate: input.endDate,
+        reelsTarget: input.reelsTarget,
+        postersTarget: input.postersTarget,
+      });
+      setEditingCycle(null);
+    } else if (cycleFormPrefill?.id) {
       // Renewal
       const newCycle = await cyclesApi.renew(cycleFormPrefill.id, {
         startDate: input.startDate,
@@ -369,16 +380,13 @@ export function ClientDetail({ client: initialClient, assets, cycles: initialCyc
         reelsTarget: input.reelsTarget,
         postersTarget: input.postersTarget,
       });
-      const updated = await cyclesApi.list(client.id);
-      setCycles(updated);
-      onCyclesChange?.(updated);
     } else {
       // New cycle
       await cyclesApi.create(input);
-      const updated = await cyclesApi.list(client.id);
-      setCycles(updated);
-      onCyclesChange?.(updated);
     }
+    const updated = await cyclesApi.list(client.id);
+    setCycles(updated);
+    onCyclesChange?.(updated);
   };
 
   const handleCompleteCycle = async (cycleId: string) => {
@@ -398,6 +406,13 @@ export function ClientDetail({ client: initialClient, assets, cycles: initialCyc
   };
 
   const handleRenewCycle = (cycle: ServiceCycle) => {
+    setCycleFormPrefill(cycle);
+    setEditingCycle(null);
+    setIsCycleFormOpen(true);
+  };
+
+  const handleEditCycle = (cycle: ServiceCycle) => {
+    setEditingCycle(cycle);
     setCycleFormPrefill(cycle);
     setIsCycleFormOpen(true);
   };
@@ -816,6 +831,7 @@ export function ClientDetail({ client: initialClient, assets, cycles: initialCyc
                         onComplete={handleCompleteCycle}
                         onCancel={handleCancelCycle}
                         onRenew={handleRenewCycle}
+                        onEdit={handleEditCycle}
                       />
                     ))
                   )}
@@ -1089,9 +1105,15 @@ export function ClientDetail({ client: initialClient, assets, cycles: initialCyc
 
       <CycleFormDialog
         open={isCycleFormOpen}
-        onOpenChange={setIsCycleFormOpen}
+        onOpenChange={(open) => {
+          setIsCycleFormOpen(open);
+          if (!open) {
+            setEditingCycle(null);
+          }
+        }}
         clientId={client.id}
         prefill={cycleFormPrefill}
+        isEditing={!!editingCycle}
         onSubmit={handleCycleFormSubmit}
       />
     </div>

@@ -33,9 +33,10 @@ interface CycleCardProps {
   onComplete?: (cycleId: string) => void;
   onCancel?: (cycleId: string) => void;
   onRenew?: (cycle: ServiceCycle) => void;
+  onEdit?: (cycle: ServiceCycle) => void;
 }
 
-export function CycleCard({ cycle, isActive, onComplete, onCancel, onRenew }: CycleCardProps) {
+export function CycleCard({ cycle, isActive, onComplete, onCancel, onRenew, onEdit }: CycleCardProps) {
   const config = statusConfig[cycle.status];
   const Icon = config.icon;
 
@@ -91,6 +92,16 @@ export function CycleCard({ cycle, isActive, onComplete, onCancel, onRenew }: Cy
 
       {cycle.status === 'active' && (
         <div className="mt-3 flex gap-2">
+          {onEdit && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 flex-1 border-[rgba(255,255,255,0.08)] bg-transparent text-[11px] text-white hover:bg-[rgba(255,255,255,0.06)]"
+              onClick={() => onEdit(cycle)}
+            >
+              Edit
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

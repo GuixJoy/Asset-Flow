@@ -484,6 +484,14 @@ export const cyclesApi = {
     return hydrateServiceCycle(created);
   },
 
+  update: async (cycleId: string, input: Partial<CreateCycleInput>): Promise<ServiceCycle> => {
+    const updated = await fetchJson<ServiceCycle>(`/api/cycles/${cycleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'update', ...input }),
+    });
+    return hydrateServiceCycle(updated);
+  },
+
   delete: async (cycleId: string): Promise<void> => {
     await fetchJson(`/api/cycles/${cycleId}`, { method: 'DELETE' });
   },

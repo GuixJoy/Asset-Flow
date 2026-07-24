@@ -4,6 +4,7 @@ import {
   completeCycleService,
   cancelCycleService,
   deleteCycleService,
+  updateCycleDeliverables,
 } from '@/services/service-cycles-service';
 import { logProductionRuntimeError } from '@/lib/runtime-diagnostics';
 import { getOrCreateCurrentUserProfile } from '@/services/users-service';
@@ -54,6 +55,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (action === 'cancel') {
       await cancelCycleService(cycleId);
       return NextResponse.json({ data: true });
+    }
+
+    if (action === 'update') {
+      const updated = await updateCycleDeliverables(cycleId, {
+        startDate: body.startDate,
+        endDate: body.endDate,
+        reelsTarget: body.reelsTarget,
+        postersTarget: body.postersTarget,
+      });
+      return NextResponse.json({ data: updated });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

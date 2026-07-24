@@ -19,6 +19,7 @@ interface CycleFormDialogProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   prefill?: Partial<ServiceCycle>;
+  isEditing?: boolean;
   onSubmit: (input: CreateCycleInput) => Promise<void>;
 }
 
@@ -49,7 +50,7 @@ function getDefaultDates(prefill?: Partial<ServiceCycle>) {
   };
 }
 
-export function CycleFormDialog({ open, onOpenChange, clientId, prefill, onSubmit }: CycleFormDialogProps) {
+export function CycleFormDialog({ open, onOpenChange, clientId, prefill, isEditing, onSubmit }: CycleFormDialogProps) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const defaults = getDefaultDates(prefill);
@@ -69,9 +70,11 @@ export function CycleFormDialog({ open, onOpenChange, clientId, prefill, onSubmi
     }
   }, [open, prefill]);
 
-  const isRenewal = Boolean(prefill?.id);
-  const title = isRenewal ? 'Create Next Cycle' : 'New Service Cycle';
-  const description = isRenewal
+  const isRenewal = Boolean(prefill?.id) && !isEditing;
+  const title = isEditing ? 'Edit Service Cycle' : isRenewal ? 'Create Next Cycle' : 'New Service Cycle';
+  const description = isEditing
+    ? 'Update the contract period and deliverables. The content plan will be regenerated.'
+    : isRenewal
     ? 'Start a new service cycle. Dates and deliverables can be modified from the previous cycle.'
     : 'Define the contract period and deliverables for this cycle.';
 
@@ -182,7 +185,7 @@ export function CycleFormDialog({ open, onOpenChange, clientId, prefill, onSubmi
               disabled={isSaving}
               className="h-9 bg-[var(--primary)] text-[13px] text-white hover:bg-[#4f46e5]"
             >
-              {isSaving ? 'Saving...' : isRenewal ? 'Create Cycle' : 'Create Cycle'}
+              {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : isRenewal ? 'Create Cycle' : 'Create Cycle'}
             </Button>
           </DialogFooter>
         </form>
