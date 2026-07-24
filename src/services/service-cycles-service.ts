@@ -10,10 +10,55 @@ import {
   deleteCycle,
   type DbServiceCycle,
 } from '@/repositories/service-cycles-repository';
-import { listPlansByCycleId, type DbContentPlan } from '@/repositories/plans-repository';
+import { listPlansByCycleId, deletePlansByCycleId, type DbContentPlan } from '@/repositories/plans-repository';
+import { generateWeeks, distributeDeliverables } from '@/services/plan-utils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type AssetType = Database['public']['Enums']['asset_type'];
+
+/**
+ * Generate content plan using TypeScript (not SQL RPC).
+ * The SQL RPC has an integer division bug that produces wrong distributions.
+ * This function uses the proven plan-utils.ts functions instead.
+ */
+async function generatePlanForCycle(
+  cycleId: string,
+  clientId: string,
+  startDate: string,
+  endDate: string,
+  reelsTarget: number,
+  postersTarget: number,
+  supabase: SupabaseClient<Database>
+): Promise<void> {
+  // Delete existing plans
+  await deletePlansByCycleId(cycleId, supabase);
+
+  // Generate weeks from contract period
+  const weeks = generateWeeks(startDate, endDate);
+
+  // Distribute deliverables evenly across weeks
+  const reelDistribution = distributeDeliverables(reelsTarget, weeks.length);
+  const posterDistribution = distributeDeliverables(postersTarget, weeks.length);
+
+  // Insert plan rows
+  const planRows = weeks.map((week, i) => ({
+    cycle_id: cycleId,
+    client_id: clientId,
+    week_number: week.weekNumber,
+    week_start: week.weekStart,
+    week_end: week.weekEnd,
+    planned_reels: reelDistribution[i],
+    planned_posters: posterDistribution[i],
+  }));
+
+  if (planRows.length > 0) {
+    const { error } = await supabase.from('content_plans').insert(planRows);
+    if (error) {
+      console.error('[service-cycles] Plan insert failed', { cycleId, error: error.message });
+      throw new Error(`Failed to generate content plan: ${error.message}`);
+    }
+  }
+}
 
 function mapCycle(row: DbServiceCycle): ServiceCycle {
   return {
@@ -193,17 +238,16 @@ export async function createCycle(input: CreateCycleInput): Promise<ServiceCycle
     supabase
   );
 
-  // Generate content plan via RPC
-  const { error: planError } = await supabase.rpc('generate_content_plan', {
-    p_cycle_id: cycle.id,
-  });
-
-  if (planError) {
-    console.error('[service-cycles] Plan generation failed', {
-      cycleId: cycle.id,
-      error: planError.message,
-    });
-  }
+  // Generate content plan using TypeScript (not SQL RPC)
+  await generatePlanForCycle(
+    cycle.id,
+    input.clientId,
+    input.startDate,
+    input.endDate,
+    input.reelsTarget,
+    input.postersTarget,
+    supabase
+  );
 
   return mapCycle(cycle);
 }
@@ -284,16 +328,19 @@ export async function updateCycleDeliverables(
   if (Object.keys(updates).length > 0) {
     await updateCycle(cycleId, updates, supabase);
 
-    // Regenerate content plan with updated values
-    const { error: planError } = await supabase.rpc('generate_content_plan', {
-      p_cycle_id: cycleId,
-    });
-
-    if (planError) {
-      console.error('[service-cycles] Plan regeneration failed', {
+    // Read the updated cycle to get current values
+    const updatedCycle = await getCycleById(cycleId, supabase);
+    if (updatedCycle) {
+      // Regenerate content plan with updated values
+      await generatePlanForCycle(
         cycleId,
-        error: planError.message,
-      });
+        updatedCycle.client_id,
+        updatedCycle.start_date,
+        updatedCycle.end_date,
+        updatedCycle.reels_target,
+        updatedCycle.posters_target,
+        supabase
+      );
     }
   }
 
