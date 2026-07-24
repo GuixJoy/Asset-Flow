@@ -26,10 +26,17 @@ import { AssetCard } from '@/components/assets/asset-card';
 import { cn } from '@/lib/utils';
 import { ClientFormDialog } from '@/components/clients/client-form-dialog';
 import { ClientReport } from './client-report';
+import { CycleCard } from '@/components/cycles/cycle-card';
+import { CycleFormDialog } from '@/components/cycles/cycle-form-dialog';
+import { ContentPlanCard } from '@/components/cycles/content-plan-card';
+import { cyclesApi } from '@/lib/api-client';
+import type { ServiceCycle, ServiceCycleWithPlan, CreateCycleInput } from '@/types/index';
 
 interface ClientDetailProps {
   client: Client;
   assets: Asset[];
+  cycles?: ServiceCycleWithPlan[];
+  onCyclesChange?: (cycles: ServiceCycleWithPlan[]) => void;
 }
 
 type ReferenceFormState = {
@@ -260,18 +267,20 @@ function ReferenceEditorDialog({
   );
 }
 
-interface ClientDetailProps {
-  client: Client;
-  assets: Asset[];
-}
-
-export function ClientDetail({ client: initialClient, assets }: ClientDetailProps) {
+export function ClientDetail({ client: initialClient, assets, cycles: initialCycles = [], onCyclesChange }: ClientDetailProps) {
   const [client, setClient] = useState<Client>(initialClient);
   const [activeTab, setActiveTab] = useState<'overview' | 'assets' | 'reports'>('overview');
+  const [cycles, setCycles] = useState<ServiceCycleWithPlan[]>(initialCycles);
+  const [isCycleFormOpen, setIsCycleFormOpen] = useState(false);
+  const [cycleFormPrefill, setCycleFormPrefill] = useState<Partial<ServiceCycle> | undefined>(undefined);
 
   useEffect(() => {
     setClient(initialClient);
   }, [initialClient]);
+
+  useEffect(() => {
+    setCycles(initialCycles);
+  }, [initialCycles]);
   const [team, setTeam] = useState<User[]>([]);
   const [references, setReferences] = useState<ClientReference[]>([]);
   const [referencesLoading, setReferencesLoading] = useState(true);
@@ -349,6 +358,51 @@ export function ClientDetail({ client: initialClient, assets }: ClientDetailProp
       isActive = false;
     };
   }, [client.id]);
+
+  // Cycle management handlers
+  const handleCycleFormSubmit = async (input: CreateCycleInput) => {
+    if (cycleFormPrefill?.id) {
+      // Renewal
+      const newCycle = await cyclesApi.renew(cycleFormPrefill.id, {
+        startDate: input.startDate,
+        endDate: input.endDate,
+        reelsTarget: input.reelsTarget,
+        postersTarget: input.postersTarget,
+      });
+      const updated = await cyclesApi.list(client.id);
+      setCycles(updated);
+      onCyclesChange?.(updated);
+    } else {
+      // New cycle
+      await cyclesApi.create(input);
+      const updated = await cyclesApi.list(client.id);
+      setCycles(updated);
+      onCyclesChange?.(updated);
+    }
+  };
+
+  const handleCompleteCycle = async (cycleId: string) => {
+    await cyclesApi.complete(cycleId);
+    const updated = await cyclesApi.list(client.id);
+    setCycles(updated);
+    onCyclesChange?.(updated);
+    toast({ title: 'Cycle completed' });
+  };
+
+  const handleCancelCycle = async (cycleId: string) => {
+    await cyclesApi.cancel(cycleId);
+    const updated = await cyclesApi.list(client.id);
+    setCycles(updated);
+    onCyclesChange?.(updated);
+    toast({ title: 'Cycle cancelled' });
+  };
+
+  const handleRenewCycle = (cycle: ServiceCycle) => {
+    setCycleFormPrefill(cycle);
+    setIsCycleFormOpen(true);
+  };
+
+  const activeCycle = cycles.find((c) => c.status === 'active') ?? null;
 
   // Monthly targets & completions
   const monthlyPostsTarget = client.monthlyPostsTarget ?? 0;
@@ -734,32 +788,48 @@ export function ClientDetail({ client: initialClient, assets }: ClientDetailProp
               </Card>
 
               <Card className="rounded-[10px] border-0 bg-[#161616] p-5 shadow-none">
-                <h2 className="text-[13px] font-medium text-white">Contract Information</h2>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <p className="text-[11px] text-[#71717a] uppercase tracking-wider">Contract Start</p>
-                    <p className="text-[13px] font-medium text-white mt-1">
-                      {client.contractStartDate ? new Date(client.contractStartDate).toLocaleDateString(undefined, {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      }) : 'Not specified'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-[#71717a] uppercase tracking-wider">Contract End</p>
-                    <p className="text-[13px] font-medium text-white mt-1">
-                      {client.contractEndDate ? new Date(client.contractEndDate).toLocaleDateString(undefined, {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      }) : 'Not specified'}
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[13px] font-medium text-white">Service Cycles</h2>
+                  <Button
+                    size="sm"
+                    className="h-7 bg-[var(--primary)] text-[11px] text-white hover:bg-[#4f46e5]"
+                    onClick={() => {
+                      setCycleFormPrefill(undefined);
+                      setIsCycleFormOpen(true);
+                    }}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    New Cycle
+                  </Button>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {cycles.length === 0 ? (
+                    <div className="py-6 text-center text-[12px] text-[#71717a] border border-dashed border-[rgba(255,255,255,0.08)] rounded-md">
+                      No service cycles yet. Create one to generate a content plan.
+                    </div>
+                  ) : (
+                    cycles.map((cycle) => (
+                      <CycleCard
+                        key={cycle.id}
+                        cycle={cycle}
+                        isActive={cycle.status === 'active'}
+                        onComplete={handleCompleteCycle}
+                        onCancel={handleCancelCycle}
+                        onRenew={handleRenewCycle}
+                      />
+                    ))
+                  )}
                 </div>
               </Card>
             </div>
           </div>
+
+          {activeCycle && (
+            <ContentPlanCard
+              plans={activeCycle.plans}
+              className="rounded-[10px] border-0"
+            />
+          )}
 
           <Card className="rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#161616] p-5 shadow-none">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1016,6 +1086,14 @@ export function ClientDetail({ client: initialClient, assets }: ClientDetailProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CycleFormDialog
+        open={isCycleFormOpen}
+        onOpenChange={setIsCycleFormOpen}
+        clientId={client.id}
+        prefill={cycleFormPrefill}
+        onSubmit={handleCycleFormSubmit}
+      />
     </div>
   );
 }

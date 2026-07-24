@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { ClientDetail } from '@/components/clients/client-detail';
-import { clientsApi, assetsApi } from '@/lib/api-client';
-import { Client, Asset } from '@/types/index';
+import { clientsApi, assetsApi, cyclesApi } from '@/lib/api-client';
+import { Client, Asset, ServiceCycleWithPlan } from '@/types/index';
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -13,6 +13,7 @@ export default function ClientDetailPage() {
 
   const [client, setClient] = useState<Client | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [cycles, setCycles] = useState<ServiceCycleWithPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,12 +27,14 @@ export default function ClientDetailPage() {
           return;
         }
         setError(null);
-        const [clientData, assetsData] = await Promise.all([
+        const [clientData, assetsData, cyclesData] = await Promise.all([
           clientsApi.getById(clientId),
           assetsApi.getByClientId(clientId),
+          cyclesApi.list(clientId),
         ]);
         setClient(clientData);
         setAssets(assetsData);
+        setCycles(cyclesData);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load client';
         setError(message);
@@ -103,7 +106,7 @@ export default function ClientDetailPage() {
           { label: client.name },
         ]}
       />
-      <ClientDetail client={client} assets={assets} />
+      <ClientDetail client={client} assets={assets} cycles={cycles} onCyclesChange={setCycles} />
     </div>
   );
 }
